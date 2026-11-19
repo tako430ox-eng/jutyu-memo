@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>受注メモ（ベータ版）</title>
+<meta name="description" content="フリーランスの方が仕事を受けるときに、条件の確認文と、支払期日（納品から60日）の目安を作る無料の道具です。案件の記録、支払いが遅れたときの連絡文、相談窓口の案内もあります。入力した内容は送信されません。ベータ版（試験運用中）です。">
+<style>
+/* Layout: 左に取引の条件（入力）、右に「確認文」と「支払期日」の2枚の結果。狭い画面では縦に積む */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --ink: #1d2433;
+  --muted: #5b6475;
+  --line: #d9dde5;
+  --accent: #2f4a7a;      /* 藍 */
+  --accent-soft: #e6ebf4;
+  --ok: #1f7a4d; --ok-soft: #e3f3ea;
+  --warn: #9a6200; --warn-soft: #fbf0d9;
+  --bad: #b3261e; --bad-soft: #fbe5e3;
+  /* 外部のフォントは読み込まない（ページを開いただけで他社のサーバーに接続しないため） */
+  --font-body: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Meiryo", "Noto Sans JP", sans-serif;
+  --font-head: var(--font-body);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161e; --surface: #1a202b; --ink: #e6e9ef; --muted: #a2abbb; --line: #2e3646;
+    --accent: #9db4e0; --accent-soft: #24304a;
+    --ok: #6fd3a0; --ok-soft: #173326; --warn: #f0c062; --warn-soft: #3a2e14; --bad: #f2928b; --bad-soft: #3d1f1d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161e; --surface: #1a202b; --ink: #e6e9ef; --muted: #a2abbb; --line: #2e3646;
+  --accent: #9db4e0; --accent-soft: #24304a;
+  --ok: #6fd3a0; --ok-soft: #173326; --warn: #f0c062; --warn-soft: #3a2e14; --bad: #f2928b; --bad-soft: #3d1f1d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.7;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 48px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 20px; }
+header h1 { font-family: var(--font-head); font-size: 1.6rem; margin: 0; letter-spacing: .02em; text-wrap: balance; }
+header p { margin: 4px 0 0; color: var(--muted); max-width: 65ch; }
+.sample { display: inline-block; font-size: .78rem; padding: 1px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); margin-left: 6px; vertical-align: middle; }
+.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 20px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+.panel h2 { font-family: var(--font-head); font-size: 1.1rem; margin: 0 0 4px; }
+.panel .lead { margin: 0 0 14px; color: var(--muted); font-size: .9rem; }
+.stack { display: grid; gap: 20px; min-width: 0; }
+form { display: grid; gap: 12px; }
+.field { display: grid; gap: 4px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 420px) { .row2 { grid-template-columns: 1fr; } }
+label { font-size: .85rem; font-weight: 500; }
+label small { color: var(--muted); font-weight: 400; }
+input, select, textarea {
+  font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; width: 100%; min-width: 0;
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+fieldset { border: 1px dashed var(--line); border-radius: 8px; padding: 10px 12px 12px; margin: 0; display: grid; gap: 10px; }
+legend { font-size: .8rem; color: var(--muted); padding: 0 4px; letter-spacing: .04em; }
+.seg { display: flex; gap: 8px; flex-wrap: wrap; }
+.seg label { display: flex; gap: 6px; align-items: center; font-weight: 400; border: 1px solid var(--line); border-radius: 99px; padding: 3px 12px; cursor: pointer; }
+.seg input { width: auto; }
+.msg { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px; font-size: .92rem; margin: 0; overflow-wrap: anywhere; }
+.actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+button { font: inherit; border: 1px solid var(--accent); background: var(--accent); color: var(--surface); border-radius: 6px; padding: 6px 14px; cursor: pointer; }
+button.ghost { background: transparent; color: var(--accent); }
+.note { font-size: .82rem; color: var(--muted); }
+.missing { margin-top: 10px; font-size: .85rem; background: var(--warn-soft); color: var(--warn); border-radius: 6px; padding: 8px 10px; }
+.dates { display: grid; gap: 0; margin: 0; }
+.dates div { display: grid; grid-template-columns: 11em minmax(0,1fr); gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.dates div:last-child { border-bottom: 0; }
+.dates dt { color: var(--muted); font-size: .88rem; }
+.dates dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 500; }
+@media (max-width: 420px) { .dates div { grid-template-columns: 1fr; gap: 0; } }
+.verdict { border-radius: 8px; padding: 10px 12px; margin-top: 12px; font-size: .92rem; }
+.verdict strong { display: block; }
+.v-ok { background: var(--ok-soft); color: var(--ok); }
+.v-warn { background: var(--warn-soft); color: var(--warn); }
+.v-bad { background: var(--bad-soft); color: var(--bad); }
+.v-none { background: var(--accent-soft); color: var(--accent); }
+details { font-size: .85rem; color: var(--muted); margin-top: 12px; }
+details summary { cursor: pointer; color: var(--accent); }
+footer { color: var(--muted); font-size: .8rem; max-width: 80ch; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.chip { font-size: .8rem; padding: 2px 10px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.chip.s-ok { background: var(--ok-soft); color: var(--ok); } .chip.s-warn { background: var(--warn-soft); color: var(--warn); } .chip.s-bad { background: var(--bad-soft); color: var(--bad); }
+.confirm { margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--bad-soft); color: var(--bad); border-radius: 6px; padding: 8px 10px; font-size: .88rem; }
+.confirm button:not(.ghost) { background: var(--bad); border-color: var(--bad); }
+.checklist { margin-top: 10px; background: var(--accent-soft); border-radius: 6px; padding: 8px 12px; font-size: .86rem; }
+.checklist ul { margin: 4px 0 0; padding-left: 1.2em; }
+.help { margin: 0 0 10px; display: grid; gap: 10px; }
+.help div { border-left: 3px solid var(--line); padding-left: 10px; }
+.help dt { font-weight: 700; font-size: .92rem; }
+.help dd { margin: 2px 0 0; font-size: .88rem; color: var(--ink); }
+.notice { background: var(--surface); border: 2px solid var(--warn); border-radius: 10px; padding: 14px 16px; }
+.notice h2 { margin: 0 0 6px; font-size: 1rem; }
+.notice ul { margin: 0; padding-left: 1.2em; font-size: .9rem; }
+.notice li + li { margin-top: 4px; }
+.beta { font-size: .75rem; font-weight: 700; color: var(--warn); background: var(--warn-soft); border-radius: 99px; padding: 2px 10px; vertical-align: middle; }
+.fb { margin-top: 12px; background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; font-size: .88rem; }
+.fb a { color: var(--accent); font-weight: 700; }
+.about h3 { font-size: .95rem; margin: 14px 0 4px; }
+.about p, .about li { font-size: .88rem; }
+.about ul { padding-left: 1.2em; margin: 4px 0; }
+a { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>受注メモ <span class="beta">ベータ版</span></h1>
+    <p>フリーランスで仕事を受けるときの条件を入れると、相手に送る確認文と、支払期日の目安が出ます。案件ごとに経過を記録し、支払いが遅れたときの連絡文も作れます。入力欄には例が入っています。無料です。</p>
+  </header>
+
+  <section class="notice" aria-labelledby="h-notice">
+    <h2 id="h-notice">使う前にお読みください</h2>
+    <ul>
+      <li><b>試験運用中のベータ版です。</b>使った方の声をもとに、内容を変えていきます。表示や計算に誤りがあるかもしれません。相手に送る前に、文面と日付をご自身で確かめてください。</li>
+      <li><b>弁護士などの専門家の判断ではありません。</b>文面はひな形、法律の説明は公的な資料をもとにした参考情報です。相手ともめている、もめそうなときは、下の「4. それでも支払われないとき」の窓口や弁護士に相談してください。</li>
+      <li>法律や手数料の説明は、<span data-cfg="checked"></span>までに公的な資料で確かめた内容です。その後に変わっていることがあります。</li>
+      <li><b>入力した内容は、どこにも送信されません。</b>この端末のブラウザの中にだけ残ります。ブラウザのデータを消すと消えます。iPhone の Safari などでは、しばらく開かないと消えることがあります。大事な記録は、いちばん下の「記録の保存」でファイルに書き出してください。</li>
+      <li>人と共用のパソコンでは使わないか、使い終わったら「記録の保存」の「すべての記録を消す」を押してください。</li>
+    </ul>
+  </section>
+
+  <section class="panel casebar" aria-labelledby="h-cases">
+    <h2 id="h-cases">案件記録</h2>
+    <div class="actions" style="margin-top:6px">
+      <label for="caseSel" class="sr">表示する案件</label>
+      <select id="caseSel" style="flex:1 1 18em"></select>
+      <span class="chip" id="caseStatus"></span>
+      <button type="button" class="ghost" id="newCase">新しい案件</button>
+      <button type="button" class="ghost" id="delCase">この案件を削除</button>
+    </div>
+    <div class="confirm" id="delConfirm" hidden>この案件の記録を削除します。元に戻せません。<button type="button" id="delYes">削除する</button><button type="button" class="ghost" id="delNo">やめる</button></div>
+  </section>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="h-form">
+      <h2 id="h-form">取引の条件</h2>
+      <p class="lead">分からない項目は空欄のままで構いません。確認文の中で「教えてください」とお願いする形になります。</p>
+      <form id="f" autocomplete="off">
+        <fieldset>
+          <legend>宛名（相手）</legend>
+          <div class="field"><label for="clientCo">会社名 <small>（「株式会社」は略さず）</small></label><input id="clientCo" placeholder="株式会社〇〇"></div>
+          <div class="field"><label for="clientName">部署・お名前 <small>（「様」は自動で付きます）</small></label><input id="clientName" placeholder="販売促進部 田中"></div>
+        </fieldset>
+        <fieldset>
+          <legend>名乗りと署名（自分）</legend>
+          <div class="row2">
+            <div class="field"><label for="me">自分の名前</label><input id="me" placeholder="山田 花子"></div>
+            <div class="field"><label for="myTitle">屋号・肩書 <small>（任意）</small></label><input id="myTitle" placeholder="デザイナー"></div>
+          </div>
+          <div class="field"><label for="myContact">連絡先 <small>（任意。署名に入ります）</small></label><input id="myContact" placeholder="メールアドレスや電話番号"></div>
+        </fieldset>
+        <div class="row2">
+          <div class="field"><label for="title">案件名 <small>（件名に使います）</small></label><input id="title" placeholder="新商品ページのバナー制作"></div>
+          <div class="field"><label for="start">作業を始める予定日 <small>（任意）</small></label><input id="start" type="date"></div>
+        </div>
+        <div class="field"><label for="work">業務の内容</label><textarea id="work" rows="2" placeholder="何を、いくつ作るか"></textarea></div>
+        <div class="row2">
+          <div class="field"><label for="fee">報酬額（円）</label><input id="fee" inputmode="numeric" placeholder="90000"></div>
+          <div class="field"><label for="tax">税の扱い</label>
+            <select id="tax"><option value="">未定</option><option value="税抜">税抜（別途消費税）</option><option value="税込">税込</option></select></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label for="due">納期</label><input id="due" type="date"></div>
+          <div class="field"><label for="how">納品の方法</label><input id="how" placeholder="データをメールで送付"></div>
+        </div>
+        <fieldset>
+          <legend>支払い</legend>
+          <div class="field"><label for="payType">支払日の決め方</label>
+            <select id="payType">
+              <option value="none">未定</option>
+              <option value="date">日付で決まっている</option>
+              <option value="eom1">月末締め・翌月末払い</option>
+              <option value="eom2">月末締め・翌々月末払い</option>
+            </select></div>
+          <div class="field" id="payDateField"><label for="payDate">約束の支払日</label><input id="payDate" type="date"></div>
+        </fieldset>
+        <div class="row2">
+          <div class="field"><label for="rev">修正の回数</label><input id="rev" placeholder="2回まで"></div>
+          <div class="field"><label for="cancel">途中で中止になったとき</label><input id="cancel" placeholder="例：作業済み分を支払う"></div>
+        </div>
+        <div class="field"><label>相手とのやり取り</label>
+          <div class="seg">
+            <label><input type="radio" name="rel" value="usual" checked> これまでにもある</label>
+            <label><input type="radio" name="rel" value="first"> 今回が初めて</label>
+          </div></div>
+        <div class="field"><label>文面の調子</label>
+          <div class="seg">
+            <label><input type="radio" name="tone" value="soft" checked> やわらかめ</label>
+            <label><input type="radio" name="tone" value="plain"> ふつう</label>
+          </div></div>
+        <fieldset>
+          <legend>経過の記録</legend>
+          <div class="row2">
+            <div class="field"><label for="sentDate">確認文を送った日</label><input id="sentDate" type="date"></div>
+            <div class="field"><label for="invDate">請求書を送った日</label><input id="invDate" type="date"></div>
+          </div>
+          <div class="field"><label for="reply">相手の返事 <small>（届いた返事を貼り付けておくと、条件の記録になります）</small></label><textarea id="reply" rows="2" placeholder="例：内容問題ありません。よろしくお願いします。"></textarea></div>
+          <div class="row2">
+            <div class="field"><label for="paidDate">入金を確認した日</label><input id="paidDate" type="date"></div>
+            <div class="field"><label for="memo">メモ</label><input id="memo" placeholder="電話で話したことなど"></div>
+          </div>
+        </fieldset>
+        <div class="actions"><button type="button" class="ghost" id="clear">空にする</button><button type="button" class="ghost" id="example">例に戻す</button></div>
+      </form>
+    </section>
+
+    <div class="stack">
+      <section class="panel" aria-labelledby="h-msg">
+        <h2 id="h-msg">1. 相手に送る確認文</h2>
+        <p class="lead">メールやチャットにそのまま貼れます。相手から「問題ありません」などの返事をもらえたら、その返事を消さずに残しておくと、後で条件の記録になります。</p>
+        <div class="field" style="margin-bottom:10px"><label for="subject">件名</label>
+          <div class="actions" style="margin-top:0"><input id="subject" readonly style="flex:1 1 16em"><button type="button" class="ghost" id="copySubj">件名をコピー</button></div></div>
+        <pre class="msg" id="msg"></pre>
+        <div id="missing" class="missing" hidden></div>
+        <div class="actions"><button type="button" id="copy">本文をコピー</button><span class="note" id="copied" aria-live="polite"></span></div>
+        <p class="fb" data-fb hidden>この確認文を、実際に相手に送りましたか。送らなかった場合も含めて、<a data-fb-link href="#" target="_blank" rel="noopener">感想フォーム</a>で教えていただけると助かります（匿名・1分ほど。別の画面で開きます）。</p>
+        <details>
+          <summary>この文面で気をつけたこと</summary>
+          <ul>
+            <li>件名は「【ご確認】案件名＋用件」の形で、開く前に内容が分かるようにしています。</li>
+            <li>初めての相手には、すでに関係があることを前提にする「お世話になっております」を使わず、「初めてご連絡を差し上げます」で始めています。名乗りは「と申します」、結びは「このたびのご縁を機に、これからもどうぞよろしくお願いいたします」です。</li>
+            <li>宛名は「会社名＋部署＋お名前＋様」、本文は「挨拶 → 名乗り → 用件 → 詳細 → 結び → 署名」の順です。</li>
+            <li>1行が長くなりすぎないよう、30字前後で改行しています。</li>
+            <li>お願いは「〜ください」と言い切らず、「〜いただけますでしょうか」と相手に判断を預ける形にしています。前置きに「お手数をおかけしますが」などを添えています。</li>
+            <li>「させていただく」は、相手の許可を得て行うときに使う言い方なので、多用していません。</li>
+            <li>決まっていない点には番号を付け、相手が一つずつ答えやすくしています。</li>
+          </ul>
+          <p>文化庁「敬語おもしろ相談室」、大学・ビジネス向けのメールの書き方の解説、日本ビジネスメール協会「ビジネスメール実態調査2026」をもとにしています。</p>
+        </details>
+        <details>
+          <summary>もっと正式に残したいとき</summary>
+          <p>このページは、メールで確認文を送り、相手の返信を残す方法です。相手に署名の形で同意してもらいたいときは、電子契約サービスも使えます。クラウドサイン（無料は月2件まで）やGMOサイン（無料は月5件まで、契約印タイプ）は、受け取る相手にアカウント登録がなくても同意してもらえる、と各社のページにあります（2026年11月19日確認）。ただし、どれも「合意済みの書類に署名してもらう」使い方で、条件の確認文を作る機能や支払期日の計算は書かれていません。このページは、これらのサービスと関係がありません。</p>
+        </details>
+      </section>
+
+      <section class="panel" aria-labelledby="h-pay">
+        <h2 id="h-pay">2. 支払期日の目安</h2>
+        <p class="lead">納品した（相手が受け取った）日から数えて60日以内、が法律上の目安です。約束の支払日がそれに収まっているか、今日から見てどうかを示します。</p>
+        <div class="field" style="margin-bottom:10px"><label for="recv">納品した日 <small>（空欄なら納期で計算）</small></label><input id="recv" type="date"></div>
+        <dl class="dates" id="dates"></dl>
+        <div id="verdict"></div>
+        <details>
+          <summary>この計算の前提と限界</summary>
+          <ul>
+            <li>60日は、納品した日を1日目として数えています（例：4月1日納品なら5月30日が60日目）。公正取引委員会のQ&A（Q45）に「受領した日を算入します」とあります。4月1日の例は、この決まりに沿った私の計算です。</li>
+            <li>「納品した日」は、相手が受け取った日です。Q&A（Q45）では、メールで送ったデータは相手のパソコンなどに記録された時点、作業やサービスは一連の作業が終わった日とされています。</li>
+            <li>例外があります（国の資料「考え方」）。デザインなどの成果物を途中で相手に渡す場合、「一定の水準を満たしていることを確認した時点で受け取ったことにする」と合意していれば、渡した日ではなく確認した日から数えます。ただし約束の納期に相手の手元にあれば、確認が済んでいなくても納期の日から数えます。作業やサービスを毎月続けて提供する場合は、条件を満たせば月の締切日から60日（2か月）以内でよいとされています。</li>
+            <li>やり直しをした場合は、やり直した後の成果物を受け取った日から数えます（Q&A Q46）。</li>
+            <li>フリーランス法の支払期日のルールは、従業員を使っている発注者から、従業員を使っていない個人などが受けた仕事が対象です。相手が1人で事業をしている場合などは対象外のことがあります。</li>
+            <li>月末締め・翌月末払いでは、月初に納品すると61日目や62日目の支払いになることがあります。Q&A（Q48）は、このような月単位の締切では60日を「2か月以内」として扱い、問題としないとしています。翌々月末払いは、この扱いでも2か月を超えます。</li>
+            <li>ただし、60日を理由に、これまでより遅い支払日を新しく決めることは問題になるとされています（Q&A Q49）。</li>
+            <li>「従業員」は、週20時間以上かつ31日以上の雇用が見込まれる人とする解説があります（弥生、弁護士監修、2025年12月更新）。</li>
+            <li>この計算は情報の整理のためのもので、法律相談の代わりにはなりません。相手がフリーランス法の対象かどうか、例外に当たるかどうかは、このページでは判断していません。</li>
+          </ul>
+        </details>
+      </section>
+
+      <section class="panel" aria-labelledby="h-rem">
+        <h2 id="h-rem">3. 支払いの連絡文</h2>
+        <p class="lead">支払日の前のご案内から、遅れたときの確認まで、3段階で作れます。相手を責めず、行き違いに配慮する書き方にしています。</p>
+        <div class="field"><label>段階</label>
+          <div class="seg" id="stageSeg">
+            <label><input type="radio" name="stage" value="1"> ① 期日前のご案内</label>
+            <label><input type="radio" name="stage" value="2" checked> ② 期日後の確認</label>
+            <label><input type="radio" name="stage" value="3"> ③ 再度の確認</label>
+          </div>
+          <span class="note" id="stageHint"></span></div>
+        <div class="row2" style="margin-top:8px">
+          <div class="field"><label for="r2">②を送った日 <small>（③の文面で使います）</small></label><input id="r2" type="date" form="f"></div>
+          <div class="field"><label for="r3">③を送った日</label><input id="r3" type="date" form="f"></div>
+        </div>
+        <div class="checklist" id="precheck">
+          <strong>送る前に確かめること</strong>
+          <ul>
+            <li>請求書を送り忘れていないか、宛先や部署名は正しいか</li>
+            <li>請求書に書いた支払期限は正しいか</li>
+            <li>今日の時点で、もう一度入金を確かめたか</li>
+          </ul>
+        </div>
+        <div class="field" style="margin:10px 0"><label for="remSubject">件名</label>
+          <div class="actions" style="margin-top:0"><input id="remSubject" readonly style="flex:1 1 16em"><button type="button" class="ghost" id="copyRemSubj">件名をコピー</button></div></div>
+        <pre class="msg" id="remMsg"></pre>
+        <div class="actions"><button type="button" id="copyRem">本文をコピー</button><span class="note" id="remCopied" aria-live="polite"></span></div>
+        <details>
+          <summary>この文面の根拠</summary>
+          <ul>
+            <li>段階は、マネーフォワードの解説（期日前のリマインド → 期日後の再確認 → 最終確認 → それでも払われなければ法的措置を検討）に沿っています。法的措置をほのめかす文は入れていません。</li>
+            <li>「本日〇月〇日時点で」と確認した時点を書く形、「手違いかと存じますが」「行き違いでご入金済みの場合は、何卒ご容赦くださいませ」は弥生の例文、「既にお支払いいただいている場合は…本メールはご放念ください」「万が一、前回のメールが届いていない場合は…」はマネーフォワードの例文を参考にしています。</li>
+            <li>①は、マネーフォワードの「期日前に送る。入金予定の取引先全体に送っている案内だと分かるように」という方針に沿って書いた文で、「念のため、ご案内いたします」は例文からの引用ではありません。</li>
+            <li>③で支払いの予定日を尋ねるのは、両社の解説にある「いつまでに入金されるかを確認する」に沿っています。</li>
+            <li>送信後に返事がなければ、電話で確かめることも勧められています（マネーフォワード）。</li>
+          </ul>
+        </details>
+      </section>
+
+      <section class="panel" aria-labelledby="h-help">
+        <h2 id="h-help">4. それでも支払われないとき</h2>
+        <p class="lead">公的な窓口と手続きです。どれも「何ができて、何ができないか」が違います。</p>
+        <dl class="help">
+          <div><dt>フリーランス・トラブル110番</dt>
+            <dd>厚生労働省の委託で第二東京弁護士会が運営。弁護士に無料で相談でき、匿名でも構いません。電話 0120-532-110（平日9:30〜16:30）、メールや予約制のビデオ相談もあります。無料の和解あっせん（あっせん人が間に入って和解を目指す手続き）もあります。弁護士が代理人になったり、相手と直接交渉したりはしません。相談前に「時系列のまとめ」と証拠を用意するよう案内されています。<br><a href="https://freelance110.mhlw.go.jp/" target="_blank" rel="noopener">フリーランス・トラブル110番（厚生労働省）</a></dd></div>
+          <div><dt>行政への「申出」</dt>
+            <dd>発注者のフリーランス法違反を、公正取引委員会・中小企業庁（取引条件や支払期日など）に知らせる制度。オンラインのフォームか郵送で出します。違反を調べて是正を求めますが、話し合いの仲裁や和解はしません。申出をしたことを理由に、取引を減らす・やめるなどの不利益な扱いをすることは法律で禁じられています（第6条第3項）。<br>名前の扱い：行政機関には氏名と連絡先を書きます。公正取引委員会の申出書には、相手に自分の名前を伝えてよいかを選ぶ欄があり、「伝えてほしくない（匿名で調査をしてほしい）」を選べます。ただし匿名にすると、被害者の特定が必要な個別の事案は調査が難しくなると書かれています。<br><a href="https://www.jftc.go.jp/soudan/shinkoku/freelance.html" target="_blank" rel="noopener">申出の案内（公正取引委員会）</a></dd></div>
+          <div><dt>支払督促（裁判所）</dt>
+            <dd>相手の住所地の簡易裁判所の書記官に申し立てます。書類の審査だけで、裁判所に出向く必要はありません。手数料は、請求額10万円までで3,200円（オンラインは3,000円）、60万円までで5,700円（同5,500円）です（相手が1人の場合）。相手が異議を出すと、通常の訴訟に移ります。<br><a href="https://www.courts.go.jp/saiban/syurui/syurui_minzi/minzi_04_02_13/index.html" target="_blank" rel="noopener">支払督促（裁判所）</a></dd></div>
+          <div><dt>少額訴訟（裁判所）</dt>
+            <dd>60万円以下のお金の支払いを求める訴えを、原則1回の審理で解決を目指す手続きです。最初の期日までに、言い分と証拠をすべて出す必要があります。証拠は、その日にすぐ調べられるものに限られます。訴えが認められても、分割払いや支払いの猶予の判決になることがあり、話し合い（和解）で終えることもできます。判決や和解調書をもとに強制執行を申し立てられます。申し立て先は原則として相手の住所地の簡易裁判所ですが、お金の請求なら支払いをすべき場所の簡易裁判所でも起こせます。書面のほか、2026年5月21日からはオンライン（mints）でも出せます。利用は同じ裁判所に1人年10回まで。相手の申し立てや裁判所の判断で通常の訴訟に移ることがあります。判決への不服は、受け取った翌日から2週間以内の異議に限られ、控訴はできません。申立手数料は、請求額10万円までで3,500円（オンラインは2,400円）、10万円増えるごとに1,000円ずつ上がり、60万円までで8,500円（同7,400円）です（相手が1人の場合。以前は別に必要だった郵便費用を含む額）。<br><span class="note">出典：裁判所「少額訴訟」（<a href="https://www.courts.go.jp/saiban/syurui/syurui_minzi/minzi_25_02/index.html" target="_blank" rel="noopener" style="overflow-wrap:anywhere">https://www.courts.go.jp/saiban/syurui/syurui_minzi/minzi_25_02/index.html</a>）、裁判所「手数料額早見表」（<a href="https://www.courts.go.jp/assets/tesuuryo_hayami.pdf" target="_blank" rel="noopener" style="overflow-wrap:anywhere">https://www.courts.go.jp/assets/tesuuryo_hayami.pdf</a>）（2026年11月18日閲覧）。早見表には少額訴訟だけの欄がないため、「訴えの提起（民事・行政訴訟）」の欄の額を当てています。</span></dd></div>
+          <div><dt>支払いが遅れたときの利息</dt>
+            <dd>フリーランス法の条文には、遅延利息の定めはありません。<br>民法では、お金の支払いが遅れたときの損害金は、遅れ始めた時点の法定利率で計算し、契約で決めた利率がそれより高ければその利率によるとされています（第419条）。法定利率は今（2026年4月〜2029年3月）は年3%です（法務省）。<br>取適法（旧下請法）にも、受け取った日から60日を過ぎた日から年14.6%の遅延利息の決まりがあります。ただ、両方の法律に違反する行為には原則としてフリーランス法を当てはめ、取適法（旧下請法）による勧告は重ねて行わない、とされています（公正取引委員会、2024年5月）。この資料は遅延利息には触れていません。また、支払遅延でフリーランス法の勧告を受けた2社（2025年6月、光文社・小学館）への勧告文にも、遅延利息の支払いを求める記載はありませんでした。フリーランス法の対象の人が、この14.6%を当てにするのは難しいと考えられます（資料からの推測です）。<br>そのため、連絡文には利息の話を入れていません。</dd></div>
+        </dl>
+        <div class="actions"><button type="button" id="copyTl">相談用に時系列をコピー</button><span class="note" id="tlCopied" aria-live="polite"></span></div>
+        <pre class="msg" id="timeline" style="margin-top:10px"></pre>
+        <details>
+          <summary>確かめられなかったこと</summary>
+          <ul>
+            <li>両方の法律が当てはまる取引で、取適法の年14.6%の遅延利息がどう扱われるかは、読んだ資料に書かれていませんでした。両法の関係を書いた資料は2024年5月のもので、取適法の施行（2026年1月）後の改定版は見つけられていません。</li>
+            <li>民法の損害金を実際に請求するときの手順や、何日分から数えるかは、このページでは扱っていません。必要なときは110番などで相談してください。</li>
+            <li>申出のオンラインフォームに、名前を相手に伝えるかを選ぶ設問があるかは、入力要領を最後まで読めず確かめられていません。</li>
+            <li>名前を伏せても、申出の内容から相手に誰のことか推し量られないよう配慮する、という記述は、読んだ案内には見当たりませんでした。</li>
+            <li>支払督促の裁判所のページには「手数料は訴訟の半額」とありましたが、郵便費用を含めた今の早見表の額では半分になりません。このページでは早見表の額を載せています。</li>
+          </ul>
+        </details>
+      </section>
+    </div>
+  </div>
+
+  <section class="panel" aria-labelledby="h-store">
+    <h2 id="h-store">記録の保存</h2>
+    <p class="lead">記録はこの端末のブラウザの中にだけあります。ほかの端末に移したいとき、消える前に残したいときは、ファイルに書き出してください。書き出したファイルには取引先の名前や金額が入るので、扱いに気をつけてください。</p>
+    <div class="actions">
+      <button type="button" id="exportAll">すべての記録をファイルに書き出す</button>
+      <label class="note" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">ファイルから読み込む：<input type="file" id="importFile" accept="application/json,.json" style="width:auto;max-width:100%"></label>
+      <button type="button" class="ghost" id="wipeAll">すべての記録を消す</button>
+    </div>
+    <p class="note" id="storeNote" aria-live="polite"></p>
+    <p class="note">読み込んだ記録は、今ある記録に追加されます（同じ案件は重ねて追加しません）。</p>
+    <div class="confirm" id="wipeConfirm" hidden>この端末にある受注メモの記録をすべて消します。元に戻せません。<button type="button" id="wipeYes">すべて消す</button><button type="button" class="ghost" id="wipeNo">やめる</button></div>
+  </section>
+
+  <section class="panel about" aria-labelledby="h-about">
+    <h2 id="h-about">このページについて</h2>
+    <p class="fb" data-fb hidden>使ってみた感想を、<a data-fb-link href="#" target="_blank" rel="noopener">感想フォーム</a>（匿名・すべて任意）で教えてください。ページを直すために使います。<b>取引先の名前、金額、ご自身の名前や連絡先は書かないでください。</b>返事はできません。答えは Google のサービス（Google フォーム）に保存されます。フォームはリンクを押したときだけ開きます。</p>
+    <h3>だれが作っているか</h3>
+    <p><span data-cfg="operator"></span>が個人で作っています。会社や国・自治体の事業ではありません。法律や窓口の説明は、各所に書いた公的な資料で確かめています。</p>
+    <h3>お金について</h3>
+    <p>無料です。使う人からお金を受け取りません。広告も、有料のサービスへの紹介もありません。書類の作成や交渉を代わりに引き受けることもしません。</p>
+    <h3>入力した内容と、外への接続</h3>
+    <ul>
+      <li>入力した内容を運営者や他社に送る機能はありません。アクセス解析や広告のプログラムも入れていません。</li>
+      <li>このページは GitHub Pages（GitHub社のサービス）で公開しています。ページを開くと、一般のホームページと同じように、GitHub社のサーバーに接続の記録（IPアドレスなど）が残ります。運営者はその記録を見ていません。</li>
+      <li>ほかのサイト（公的機関のページ、感想フォーム）には、リンクを押したときだけ接続します。</li>
+    </ul>
+    <h3>ベータ版について</h3>
+    <p>実際にお使いの方の声を集めて、確認文の形や表示を見直すための試験運用です。内容は予告なく変えることがあります。記録の保存方法を変えるときは、今の記録を引き継げるようにします。</p>
+  </section>
+
+  <footer><span data-cfg="version"></span>（<span data-cfg="updated"></span>更新）。法律・窓口の情報の確認日：<span data-cfg="checked"></span>。</footer>
+</div>
+
+<script id="logic">
+// ---- 日付の計算（純粋関数） ----
+function parseYMD(s) {
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, m, d] = s.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
+  return dt;
+}
+function addDays(dt, n) { const r = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); r.setDate(r.getDate() + n); return r; }
+function endOfMonthAfter(dt, k) { return new Date(dt.getFullYear(), dt.getMonth() + k + 1, 0); }
+function diffDays(a, b) { // b - a in calendar days
+  const ua = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const ub = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((ub - ua) / 86400000);
+}
+function ymd(dt) { const p = n => String(n).padStart(2, '0'); return dt.getFullYear() + '-' + p(dt.getMonth() + 1) + '-' + p(dt.getDate()); }
+function jp(dt) { if (!dt) return ''; const w = '日月火水木金土'[dt.getDay()]; return dt.getFullYear() + '年' + (dt.getMonth() + 1) + '月' + dt.getDate() + '日（' + w + '）'; }
+// 納品日を1日目として60日目 = 納品日 + 59日
+function legalLimit(recv) { return recv ? addDays(recv, 59) : null; }
+function promisedDate(payType, payDate, recv) {
+  if (payType === 'date') return payDate;
+  if (!recv) return null;
+  if (payType === 'eom1') return endOfMonthAfter(recv, 1);
+  if (payType === 'eom2') return endOfMonthAfter(recv, 2);
+  return null;
+}
+// 状態判定
+function assess(recv, promised, today) {
+  const limit = legalLimit(recv);
+  const r = { limit, promised, dayOfPromised: null, withinLaw: null, untilPay: null, untilLimit: null };
+  if (limit) r.untilLimit = diffDays(today, limit);
+  if (recv && promised) { r.dayOfPromised = diffDays(recv, promised) + 1; r.withinLaw = promised <= limit; }
+  if (promised) r.untilPay = diffDays(today, promised);
+  return r;
+}
+</script>
+
+<script>
+// ---- 公開前に決めて書き込む設定 ----
+const CONFIG = {
+  version: 'ベータ版 0.1',
+  updated: '2026年11月19日',
+  checked: '2026年11月19日',        // 法律・窓口の情報を確かめた日
+  operator: 'クラシ',
+  formUrl: '',                       // Google フォームの回答用リンク（https://docs.google.com/forms/d/e/…/viewform）。空なら感想の案内は出ない
+};
+const $ = id => document.getElementById(id);
+const FIELDS = ['clientCo','clientName','me','myTitle','myContact','title','start','work','fee','tax','due','how','payType','payDate','rev','cancel','recv','sentDate','reply','invDate','paidDate','memo','r2','r3'];
+const KEY = 'jutyu-memo-cases-v1';
+const OLD_KEY = 'jutyu-memo-v2';
+let store = { cases: [], current: null };
+
+function example() {
+  const t = new Date(); const due = addDays(t, 14); const st = addDays(t, 3);
+  return { clientCo: '株式会社サンプル商事', clientName: '販売促進部 田中', me: '山田 花子', myTitle: 'デザイナー', myContact: '', title: '新商品ページのバナー制作', start: ymd(st),
+    work: '新商品ページ用のバナー画像 3点（サイズ違い）の制作', fee: '90000', tax: '税抜',
+    due: ymd(due), how: 'PNGデータをメールで送付', payType: 'eom1', payDate: '', rev: '2回まで', cancel: '', recv: '', tone: 'soft',
+    sentDate: ymd(t), reply: '', invDate: '', paidDate: '', memo: '', r2: '', r3: '' };
+}
+function md(dt) { return (dt.getMonth() + 1) + '月' + dt.getDate() + '日（' + '日月火水木金土'[dt.getDay()] + '）'; }
+function honor(name) { if (!name) return ''; return /(様|御中|殿)$/.test(name) ? name : name + '様'; }
+function buildSubject(o) { return '【ご確認】' + (o.title || '〇〇') + 'の取引条件について'; }
+function read() {
+  const o = {}; FIELDS.forEach(k => o[k] = $(k).value.trim());
+  o.tone = document.querySelector('input[name=tone]:checked').value;
+  o.rel = document.querySelector('input[name=rel]:checked').value; return o;
+}
+function write(o) {
+  FIELDS.forEach(k => { $(k).value = o[k] ?? ''; });
+  document.querySelectorAll('input[name=tone]').forEach(r => r.checked = (r.value === (o.tone || 'soft')));
+  document.querySelectorAll('input[name=rel]').forEach(r => r.checked = (r.value === (o.rel || 'usual')));
+}
+function newId() { return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function cur() { return store.cases.find(c => c.id === store.current); }
+function persist() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
+function save() { const c = cur(); if (c) { c.data = read(); persist(); } }
+function loadStore() {
+  try {
+    const s = localStorage.getItem(KEY);
+    if (s) { const v = JSON.parse(s); if (v && Array.isArray(v.cases) && v.cases.length) return v; }
+    const old = localStorage.getItem(OLD_KEY);
+    if (old) { const id = newId(); return { cases: [{ id, data: JSON.parse(old) }], current: id }; }
+  } catch (e) {}
+  const id = newId();
+  return { cases: [{ id, data: example() }], current: id };
+}
+// 案件の状態
+function caseState(o, today) {
+  const recv = parseYMD(o.recv) || parseYMD(o.due);
+  const promised = promisedDate(o.payType, parseYMD(o.payDate), recv);
+  if (parseYMD(o.paidDate)) return ['入金済み', 's-ok'];
+  if (promised && diffDays(today, promised) < 0) return ['支払日を過ぎて未入金', 's-bad'];
+  if (promised && diffDays(today, promised) <= 7) return ['支払日が近い', 's-warn'];
+  if (parseYMD(o.sentDate) && o.reply) return ['条件の返事あり', 's-ok'];
+  if (parseYMD(o.sentDate)) return ['返事待ち', 's-warn'];
+  return ['確認文はまだ', ''];
+}
+function renderCases(today) {
+  const sel = $('caseSel');
+  sel.innerHTML = '';
+  store.cases.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = (c.data.title || '名前のない案件') + (c.data.clientCo ? '（' + c.data.clientCo + '）' : '') + ' ― ' + caseState(c.data, today)[0];
+    sel.appendChild(opt);
+  });
+  sel.value = store.current;
+  const st = caseState(read(), today);
+  $('caseStatus').textContent = st[0];
+  $('caseStatus').className = 'chip ' + st[1];
+  $('delCase').disabled = store.cases.length <= 1;
+}
+// 支払いの連絡文
+function suggestStage(o, today) {
+  const recv = parseYMD(o.recv) || parseYMD(o.due);
+  const promised = promisedDate(o.payType, parseYMD(o.payDate), recv);
+  if (!promised) return null;
+  if (diffDays(today, promised) >= 0) return '1';
+  return parseYMD(o.r2) ? '3' : '2';
+}
+function buildReminder(o, stage, today) {
+  const me = o.me || '〇〇';
+  const recv = parseYMD(o.recv) || parseYMD(o.due);
+  const promised = promisedDate(o.payType, parseYMD(o.payDate), recv);
+  const pTxt = promised ? md(promised) : '〇月〇日';
+  const title = o.title || '〇〇';
+  const fee = feeText(o);
+  const inv = parseYMD(o.invDate);
+  const r2 = parseYMD(o.r2);
+  const L = [];
+  L.push(o.clientCo || '株式会社〇〇');
+  L.push(honor(o.clientName) || 'ご担当者様');
+  L.push('');
+  L.push('いつもお世話になっております。');
+  L.push(o.myTitle ? o.myTitle + 'の' + me + 'です。' : me + 'です。');
+  L.push('');
+  let subject;
+  if (stage === '1') {
+    subject = '【ご案内】' + title + 'のお支払い期日について';
+    L.push(title + 'につきまして、');
+    L.push((inv ? md(inv) + 'にお送りした' : 'お送りした') + '請求書の');
+    L.push('お支払い期日が' + pTxt + 'となっております。');
+    L.push('念のため、ご案内いたします。');
+    if (fee) { L.push(''); L.push('・ご請求金額：' + fee); L.push('・お支払い期日：' + pTxt); }
+    L.push('');
+    L.push('すでにお手続きいただいている場合は、');
+    L.push('本メールはご放念ください。');
+    L.push('');
+    L.push('引き続き、どうぞよろしくお願いいたします。');
+  } else if (stage === '2') {
+    subject = '【ご確認】' + title + 'のご入金について';
+    L.push(pTxt + 'がお支払い期日となっておりました');
+    L.push(title + 'のご請求につきまして、');
+    L.push('本日' + md(today) + '時点で、');
+    L.push('ご入金を確認できておりません。');
+    if (fee) { L.push(''); L.push('・ご請求金額：' + fee); L.push('・お支払い期日：' + pTxt); }
+    L.push('');
+    L.push('手違いかと存じますが、');
+    L.push('ご確認いただけますでしょうか。');
+    L.push('');
+    L.push('行き違いでご入金済みの場合は、');
+    L.push('何卒ご容赦くださいませ。');
+    L.push('');
+    L.push('何卒よろしくお願いいたします。');
+  } else {
+    subject = '【再送】' + title + 'のご入金についてのご確認';
+    L.push(title + 'のご請求につきまして、');
+    L.push((r2 ? md(r2) : '先日') + 'にもご連絡を差し上げましたが、');
+    L.push('本日' + md(today) + '時点で、');
+    L.push('まだご入金を確認できておりません。');
+    if (fee) { L.push(''); L.push('・ご請求金額：' + fee); L.push('・お支払い期日：' + pTxt); }
+    L.push('');
+    L.push('お手数をおかけしますが、');
+    L.push('お支払いのご予定日を');
+    L.push('お知らせいただけますでしょうか。');
+    L.push('');
+    L.push('万が一、前回のメールが届いていない場合は、');
+    L.push('大変申し訳ございません。');
+    L.push('なお、既にお支払いいただいている場合は、');
+    L.push('行き違いの可能性もございますので、');
+    L.push('本メールはご放念ください。');
+    L.push('');
+    L.push('何卒よろしくお願いいたします。');
+  }
+  L.push('');
+  L.push('――――――――――――――');
+  L.push(o.myTitle ? me + '（' + o.myTitle + '）' : me);
+  if (o.myContact) L.push(o.myContact);
+  L.push('――――――――――――――');
+  return { subject, text: L.join('\n') };
+}
+// 相談用の時系列
+function buildTimeline(o) {
+  const recv = parseYMD(o.recv) || parseYMD(o.due);
+  const promised = promisedDate(o.payType, parseYMD(o.payDate), recv);
+  const ev = [];
+  const add = (d, t) => { if (d) ev.push([d, t]); };
+  add(parseYMD(o.sentDate), '取引条件の確認文を送付' + (o.reply ? '（相手の返事：「' + o.reply.replace(/\s+/g, ' ').slice(0, 80) + '」）' : '（返事の記録なし）'));
+  add(parseYMD(o.start), '作業開始（予定）');
+  add(parseYMD(o.recv), '納品');
+  if (!parseYMD(o.recv)) add(parseYMD(o.due), '納期（納品日は未記録）');
+  add(parseYMD(o.invDate), '請求書を送付');
+  add(promised, '約束の支払日');
+  add(parseYMD(o.r2), '入金の確認を連絡（期日後の確認）');
+  add(parseYMD(o.r3), '入金の確認を再度連絡（予定日を尋ねる）');
+  add(parseYMD(o.paidDate), '入金を確認');
+  ev.sort((a, b) => a[0] - b[0]);
+  const head = [
+    '案件：' + (o.title || '（未記入）'),
+    '相手：' + [o.clientCo, o.clientName].filter(Boolean).join(' ') ,
+    '業務の内容：' + (o.work || '（未記入）'),
+    '報酬額：' + (feeText(o) || '（未記入）'),
+    '支払いの決め方：' + (payText(o, recv) || '未定'),
+    ''
+  ];
+  const body = ev.length ? ev.map(e => jp(e[0]) + '　' + e[1]) : ['（日付の記録がまだありません）'];
+  const tail = o.memo ? ['', 'メモ：' + o.memo] : [];
+  return head.concat(['【経過】'], body, tail).join('\n');
+}
+function copyText(text, noteId, el) {
+  const done = () => { $(noteId).textContent = 'コピーしました'; setTimeout(() => $(noteId).textContent = '', 2500); };
+  const fallback = () => {
+    if (el.select) el.select(); else { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+    $(noteId).textContent = '選択しました。コピーしてください';
+  };
+  try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+}
+
+function feeText(o) {
+  if (!o.fee) return '';
+  const n = Number(o.fee.replace(/[,，円\s]/g, ''));
+  const v = Number.isFinite(n) && n > 0 ? n.toLocaleString('ja-JP') + '円' : o.fee;
+  return o.tax ? v + '（' + (o.tax === '税抜' ? '税抜・別途消費税' : '税込') + '）' : v;
+}
+function payText(o, recv) {
+  if (o.payType === 'date') { const d = parseYMD(o.payDate); return d ? jp(d) + ' までにお振込み' : ''; }
+  if (o.payType === 'eom1') return '月末締め・翌月末払い' + (recv ? '（' + jp(endOfMonthAfter(recv, 1)) + '）' : '');
+  if (o.payType === 'eom2') return '月末締め・翌々月末払い' + (recv ? '（' + jp(endOfMonthAfter(recv, 2)) + '）' : '');
+  return '';
+}
+
+function buildMessage(o) {
+  const soft = o.tone === 'soft';
+  const recv = parseYMD(o.recv) || parseYMD(o.due);
+  const items = [
+    ['業務の内容', o.work],
+    ['報酬額', feeText(o)],
+    ['納期', parseYMD(o.due) ? jp(parseYMD(o.due)) : ''],
+    ['納品の方法', o.how],
+    ['お支払い', payText(o, recv)],
+    ['修正の回数', o.rev],
+    ['途中で中止になった場合', o.cancel],
+  ];
+  const known = items.filter(i => i[1]); const unknown = items.filter(i => !i[1]);
+  const me = o.me || '〇〇';
+  const start = parseYMD(o.start);
+  const L = [];
+  // 宛名：会社名＋部署・お名前＋様
+  L.push(o.clientCo || '株式会社〇〇');
+  L.push(honor(o.clientName) || 'ご担当者様');
+  L.push('');
+  // 挨拶 → 名乗り
+  const first = o.rel === 'first';
+  L.push(first ? '初めてご連絡を差し上げます。' : 'いつもお世話になっております。');
+  const desu = first ? 'と申します。' : 'です。';
+  L.push(o.myTitle ? o.myTitle + 'の' + me + desu : me + desu);
+  L.push('');
+  // 用件（要旨）
+  if (soft) {
+    L.push('このたびはご依頼いただき、');
+    L.push('誠にありがとうございます。');
+    L.push('');
+    L.push('作業を始める前に、行き違いがないよう、');
+    L.push('いただいたお話を下記にまとめました。');
+    L.push('お手数をおかけしますが、');
+    L.push('内容をご確認いただけますでしょうか。');
+  } else {
+    L.push('ご依頼いただき、ありがとうございます。');
+    L.push('作業の開始にあたり、');
+    L.push('下記の内容をご確認いただけますでしょうか。');
+  }
+  L.push('');
+  // 詳細
+  if (known.length) {
+    L.push('■ 条件');
+    known.forEach(i => L.push('・' + i[0] + '：' + i[1]));
+    L.push('');
+  }
+  if (unknown.length) {
+    L.push('■ ご教示いただきたい点');
+    unknown.forEach((i, n) => L.push((n + 1) + '. ' + i[0]));
+    L.push('');
+    L.push(soft ? 'まだ伺えていなかったかと存じますので、' : '上記について、');
+    L.push(soft ? 'ご都合のよいときにお知らせいただけますと' : 'お知らせいただけますでしょうか。');
+    if (soft) L.push('助かります。');
+    L.push('');
+  }
+  // 結び（返信のお願い）
+  if (known.length && soft) {
+    L.push('認識に違いがございましたら、');
+    L.push('ご指摘いただけますと幸いです。');
+    L.push('問題がなければ、本メールへ一言');
+    L.push('ご返信いただけますでしょうか。');
+  } else if (known.length) {
+    L.push('相違がございましたら、ご指摘ください。');
+    L.push('問題がなければ、本メールへの');
+    L.push('ご返信をいただけますでしょうか。');
+  }
+  if (start) {
+    L.push('');
+    L.push(md(start) + 'に作業を始める予定のため、');
+    L.push('それまでにご確認いただけますと助かります。');
+  }
+  if (L[L.length - 1] !== '') L.push('');
+  if (first) { L.push('このたびのご縁を機に、'); L.push('これからもどうぞよろしくお願いいたします。'); }
+  else L.push('引き続き、どうぞよろしくお願いいたします。');
+  L.push('');
+  // 署名
+  L.push('――――――――――――――');
+  L.push(o.myTitle ? me + '（' + o.myTitle + '）' : me);
+  if (o.myContact) L.push(o.myContact);
+  L.push('――――――――――――――');
+  return { text: L.join('\n'), unknown: unknown.map(i => i[0]) };
+}
+
+function render() {
+  const o = read();
+  $('payDateField').hidden = o.payType !== 'date';
+  const m = buildMessage(o);
+  $('msg').textContent = m.text;
+  $('subject').value = buildSubject(o);
+  const miss = $('missing');
+  if (m.unknown.length) { miss.hidden = false; miss.textContent = 'まだ決まっていない項目：' + m.unknown.join('、') + '。文面では相手に確認をお願いする形にしています。'; }
+  else miss.hidden = true;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const recv = parseYMD(o.recv) || parseYMD(o.due);
+  const promised = promisedDate(o.payType, parseYMD(o.payDate), recv);
+  const a = assess(recv, promised, today);
+  const rows = [];
+  rows.push(['納品した日', recv ? jp(recv) + (parseYMD(o.recv) ? '' : '（納期で計算）') : '未入力']);
+  rows.push(['法律上の目安（60日目）', a.limit ? jp(a.limit) : '納品した日か納期を入れると出ます']);
+  rows.push(['約束の支払日', promised ? jp(promised) + (a.dayOfPromised ? '（納品から ' + a.dayOfPromised + ' 日目）' : '') : '未定']);
+  if (a.untilPay !== null) rows.push(['今日から', a.untilPay > 0 ? 'あと ' + a.untilPay + ' 日' : a.untilPay === 0 ? '今日が支払日' : a.untilPay * -1 + ' 日過ぎています']);
+  $('dates').innerHTML = rows.map(r => '<div><dt>' + r[0] + '</dt><dd>' + r[1] + '</dd></div>').join('');
+
+  let cls = 'v-none', head = '', body = '';
+  if (!recv) { head = '納期か納品した日を入れてください'; body = '60日の目安は、納品した日から数えます。'; }
+  else if (!promised) { head = '支払日がまだ決まっていません'; body = '確認文で支払日を聞いておくと安心です。目安は ' + jp(a.limit) + ' までです。'; }
+  else if (a.untilPay < 0) { cls = 'v-bad'; head = '約束の支払日を過ぎています'; body = '入金を確認してください。まだなら、まずは丁寧に確認の連絡を。それでも払われないときは、やり取りの記録を持ってフリーランス・トラブル110番に相談できます。'; }
+  else if (a.withinLaw === false && o.payType === 'eom1' && a.untilPay > 7) { cls = 'v-ok'; head = '60日を少し超えますが、問題としない扱いです'; body = '納品から ' + a.dayOfPromised + ' 日目の支払いです。公正取引委員会のQ&A（Q48）は、月末締め・翌月末払いのような月単位の締切では、60日を「2か月以内」として扱い、61日目や62日目の支払いを問題としないとしています。'; }
+  else if (a.withinLaw === false && o.payType !== 'eom1') { cls = 'v-warn'; head = '約束の支払日が60日の目安を超えています'; body = '相手がフリーランス法の対象なら、問題になる可能性があります。支払日を ' + jp(a.limit) + ' 以前にできないか、相談してみる余地があります。'; }
+  else if (a.untilPay <= 7) { cls = 'v-warn'; head = '支払日が近づいています（あと ' + a.untilPay + ' 日）'; body = '請求書を送っていなければ、早めに送りましょう。'; }
+  else { cls = 'v-ok'; head = '60日の目安に収まっています'; body = '支払日の前日あたりに入金を確認すると安心です。'; }
+  $('verdict').className = 'verdict ' + cls;
+  $('verdict').innerHTML = '<strong>' + head + '</strong>' + body;
+
+  // 3. 支払いの連絡文
+  const sug = suggestStage(o, today);
+  if (stageAuto) document.querySelectorAll('input[name=stage]').forEach(r => r.checked = r.value === (sug || '2'));
+  const stage = document.querySelector('input[name=stage]:checked').value;
+  $('stageHint').textContent = sug ? '今の状況では「' + { '1': '① 期日前のご案内', '2': '② 期日後の確認', '3': '③ 再度の確認' }[sug] + '」が目安です。' : '支払日が決まると、目安の段階を示します。';
+  const rem = buildReminder(o, stage, today);
+  $('remSubject').value = rem.subject;
+  $('remMsg').textContent = rem.text;
+  $('precheck').hidden = stage === '1';
+
+  // 4. 時系列
+  $('timeline').textContent = buildTimeline(o);
+  save();
+  renderCases(today);
+}
+let stageAuto = true;
+
+$('f').addEventListener('input', render);
+$('f').addEventListener('change', render);
+['recv', 'r2', 'r3'].forEach(id => { $(id).addEventListener('input', render); $(id).addEventListener('change', render); });
+document.querySelectorAll('input[name=stage]').forEach(r => r.addEventListener('change', () => { stageAuto = false; render(); }));
+$('clear').addEventListener('click', () => { write({ payType: 'none', tone: o0().tone }); stageAuto = true; render(); });
+$('example').addEventListener('click', () => { write(example()); stageAuto = true; render(); });
+function o0() { return read(); }
+$('caseSel').addEventListener('change', () => { save(); store.current = $('caseSel').value; write(cur().data); stageAuto = true; render(); });
+$('newCase').addEventListener('click', () => {
+  save();
+  const base = read();
+  const id = newId();
+  // 自分の名前や連絡先は引き継ぎ、取引の中身は空にする
+  store.cases.push({ id, data: { me: base.me, myTitle: base.myTitle, myContact: base.myContact, payType: 'none', tone: base.tone, rel: 'usual' } });
+  store.current = id; write(cur().data); stageAuto = true; render();
+});
+$('delCase').addEventListener('click', () => { $('delConfirm').hidden = false; });
+$('delNo').addEventListener('click', () => { $('delConfirm').hidden = true; });
+$('delYes').addEventListener('click', () => {
+  store.cases = store.cases.filter(c => c.id !== store.current);
+  store.current = store.cases[0].id; persist();
+  $('delConfirm').hidden = true; write(cur().data); stageAuto = true; render();
+});
+$('copyRemSubj').addEventListener('click', () => copyText($('remSubject').value, 'remCopied', $('remSubject')));
+$('copyRem').addEventListener('click', () => copyText($('remMsg').textContent, 'remCopied', $('remMsg')));
+$('copyTl').addEventListener('click', () => copyText($('timeline').textContent, 'tlCopied', $('timeline')));
+$('copySubj').addEventListener('click', () => {
+  const t = $('subject').value;
+  const done = () => { $('copied').textContent = '件名をコピーしました'; setTimeout(() => $('copied').textContent = '', 2500); };
+  const fallback = () => { $('subject').select(); $('copied').textContent = '件名を選択しました。コピーしてください'; };
+  try { navigator.clipboard.writeText(t).then(done, fallback); } catch (e) { fallback(); }
+});
+$('copy').addEventListener('click', () => {
+  const t = $('msg').textContent;
+  const done = () => { $('copied').textContent = 'コピーしました'; setTimeout(() => $('copied').textContent = '', 2500); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents($('msg')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copied').textContent = '文面を選択しました。コピーしてください'; };
+  try { navigator.clipboard.writeText(t).then(done, fallback); } catch (e) { fallback(); }
+});
+// 設定の表示
+document.querySelectorAll('[data-cfg]').forEach(el => { el.textContent = CONFIG[el.dataset.cfg] || ''; });
+if (/^https:\/\/docs\.google\.com\/forms\//.test(CONFIG.formUrl)) {
+  document.querySelectorAll('[data-fb-link]').forEach(a => a.href = CONFIG.formUrl);
+  document.querySelectorAll('[data-fb]').forEach(el => el.hidden = false);
+}
+// 記録の書き出し・読み込み・全消去
+function cleanData(d) {
+  const o = {};
+  if (!d || typeof d !== 'object') return o;
+  FIELDS.concat(['tone', 'rel']).forEach(k => { if (typeof d[k] === 'string') o[k] = d[k].slice(0, 5000); });
+  if (!['soft', 'plain'].includes(o.tone)) delete o.tone;
+  if (!['usual', 'first'].includes(o.rel)) delete o.rel;
+  if (!['none', 'date', 'eom1', 'eom2'].includes(o.payType)) o.payType = 'none';
+  return o;
+}
+function note(t) { $('storeNote').textContent = t; }
+$('exportAll').addEventListener('click', () => {
+  save();
+  const payload = { app: 'jutyu-memo', format: 1, exported: new Date().toISOString(), cases: store.cases };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'jutyu-memo-' + ymd(new Date()) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  note(store.cases.length + '件の記録を書き出しました。');
+});
+$('importFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  if (f.size > 2000000) { note('ファイルが大きすぎます。受注メモで書き出したファイルを選んでください。'); return; }
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const v = JSON.parse(r.result);
+      if (!v || v.app !== 'jutyu-memo' || !Array.isArray(v.cases)) throw new Error('form');
+      save();
+      const have = new Set(store.cases.map(c => c.id));
+      let added = 0;
+      v.cases.forEach(c => {
+        if (!c || typeof c.id !== 'string' || c.id.length > 40 || have.has(c.id)) return;
+        store.cases.push({ id: c.id, data: cleanData(c.data) }); have.add(c.id); added++;
+      });
+      persist(); render();
+      note(added ? added + '件の記録を追加しました。' : '追加する新しい記録はありませんでした。');
+    } catch (err) { note('読み込めませんでした。受注メモで書き出したファイルを選んでください。'); }
+    e.target.value = '';
+  };
+  r.readAsText(f);
+});
+$('wipeAll').addEventListener('click', () => { $('wipeConfirm').hidden = false; });
+$('wipeNo').addEventListener('click', () => { $('wipeConfirm').hidden = true; });
+$('wipeYes').addEventListener('click', () => {
+  try { localStorage.removeItem(KEY); localStorage.removeItem(OLD_KEY); } catch (e) {}
+  const id = newId();
+  store = { cases: [{ id, data: example() }], current: id };
+  $('wipeConfirm').hidden = true; write(cur().data); stageAuto = true;
+  render();
+  note('すべての記録を消しました。');
+});
+store = loadStore();
+write(cur().data);
+render();
+</script>
+</body>
+</html>
