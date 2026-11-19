@@ -304,7 +304,8 @@ a { color: var(--accent); }
       <section class="panel" aria-labelledby="h-rem">
         <h2 id="h-rem">3. 支払いの連絡文</h2>
         <p class="lead">支払日の前のご案内から、遅れたときの確認まで、3段階で作れます。相手を責めず、行き違いに配慮する書き方にしています。</p>
-        <div class="field"><label>段階</label>
+        <p class="note" id="remNoDate" hidden>支払日が分からないので、段階は選ばず、お支払日を尋ねる文にしています。支払日が決まると、段階を選べるようになります。</p>
+        <div class="field" id="stageField"><label>段階</label>
           <div class="seg" id="stageSeg">
             <label><input type="radio" name="stage" value="1"> ① 期日前のご案内</label>
             <label><input type="radio" name="stage" value="2" checked> ② 期日後の確認</label>
@@ -404,7 +405,7 @@ a { color: var(--accent); }
     <p>実際にお使いの方の声を集めて、確認文の形や表示を見直すための試験運用です。内容は予告なく変えることがあります。記録の保存方法を変えるときは、今の記録を引き継げるようにします。</p>
   </section>
 
-  <footer><span data-cfg="version">ベータ版 0.3</span>（<span data-cfg="updated">2026年11月19日</span>更新）。法律・窓口の情報の確認日：<span data-cfg="checked">2026年11月19日</span>。</footer>
+  <footer><span data-cfg="version">ベータ版 0.4</span>（<span data-cfg="updated">2026年11月19日</span>更新）。法律・窓口の情報の確認日：<span data-cfg="checked">2026年11月19日</span>。</footer>
 </div>
 
 <script id="logic">
@@ -448,7 +449,7 @@ function assess(recv, promised, today) {
 <script>
 // ---- 公開前に決めて書き込む設定 ----
 const CONFIG = {
-  version: 'ベータ版 0.3',
+  version: 'ベータ版 0.4',
   updated: '2026年11月19日',
   checked: '2026年11月19日',        // 法律・窓口の情報を確かめた日
   operator: 'クラシ',
@@ -541,9 +542,19 @@ function suggestStage(o, today) {
   const promised = promisedDate(o.payType, parseYMD(o.payDate), recv);
   if (parseYMD(o.paidDate) || !promised) return null;
   if (diffDays(today, promised) >= 0) return '1';
-  return parseYMD(o.r2) ? '3' : '2';
+  const r2 = parseYMD(o.r2);
+  return r2 && diffDays(today, r2) <= 0 ? '3' : '2';
+}
+// 手動選択でも、期日や記録で確認できないことは文面に入れない。
+// 期日を過ぎたら①（期日前のご案内）は使わない。③は②を送った日（今日以前）があるときだけ。
+function reminderStage(suggested, requested) {
+  if (!suggested || suggested === '1') return suggested;
+  if (requested === '1' || !requested) return suggested;
+  return requested === '3' && suggested !== '3' ? '2' : requested;
 }
 function buildReminder(o, stage, today) {
+  if (parseYMD(o.paidDate)) return { subject: '', text: '' };
+  stage = reminderStage(suggestStage(o, today), stage);
   const me = o.me || '〇〇';
   const recv = parseYMD(o.recv) || parseYMD(o.due);
   const promised = promisedDate(o.payType, parseYMD(o.payDate), recv);
@@ -599,7 +610,7 @@ function buildReminder(o, stage, today) {
   } else {
     subject = '【再送】' + title + 'のご入金についてのご確認';
     L.push(title + 'のご請求につきまして、');
-    L.push((r2 ? md(r2) : '先日') + 'にもご連絡を差し上げましたが、');
+    L.push(md(r2) + 'にもご連絡を差し上げましたが、');
     L.push('本日' + md(today) + '時点で、');
     L.push('まだご入金を確認できておりません。');
     if (fee) { L.push(''); L.push('・ご請求金額：' + fee); L.push('・お支払い期日：' + pTxt); }
@@ -835,13 +846,24 @@ function render() {
 
   // 3. 支払いの連絡文
   const sug = suggestStage(o, today);
-  if (stageAuto) document.querySelectorAll('input[name=stage]').forEach(r => r.checked = r.value === (sug || '2'));
-  const stage = document.querySelector('input[name=stage]:checked').value;
-  $('stageHint').textContent = sug ? '今の状況では「' + { '1': '① 期日前のご案内', '2': '② 期日後の確認', '3': '③ 再度の確認' }[sug] + '」が目安です。' : '支払日が決まると、目安の段階を示します。';
+  const selected = document.querySelector('input[name=stage]:checked');
+  const stage = reminderStage(sug, stageAuto || !selected ? sug : selected.value);
+  document.querySelectorAll('input[name=stage]').forEach(r => {
+    r.disabled = !sug || reminderStage(sug, r.value) !== r.value;
+    r.checked = r.value === stage;
+  });
+  $('stageField').hidden = !sug;
+  $('remNoDate').hidden = !!sug || !!parseYMD(o.paidDate);
+  $('stageHint').textContent = {
+    '1': '支払日当日までは「① 期日前のご案内」が使えます。',
+    '2': '「③ 再度の確認」を使うには、実際に②を送った日を入力してください。',
+    '3': '前回の連絡日を使って「③ 再度の確認」を作れます。'
+  }[sug] || '';
+  const r2d = parseYMD(o.r2);
+  if (sug === '2' && r2d && diffDays(today, r2d) > 0) $('stageHint').textContent = '「②を送った日」が今日より後の日付になっています。実際に送った日を入れると「③ 再度の確認」を作れます。';
   const paidDt = parseYMD(o.paidDate);
   $('remPaid').hidden = !paidDt; $('remBody').hidden = !!paidDt;
   if (paidDt) $('remPaid').innerHTML = '<strong>入金を確認済みの案件です（' + jp(paidDt) + '）</strong>支払いの連絡文は要りません。';
-  if (!promised && !paidDt) $('stageHint').textContent = '支払日が分からないので、お支払日を尋ねる文にしています。';
   const rem = buildReminder(o, stage, today);
   $('remSubject').value = rem.subject;
   $('remMsg').textContent = rem.text;
