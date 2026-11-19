@@ -204,7 +204,7 @@ a { color: var(--accent); }
             <label><input type="radio" name="rel" value="usual" checked> これまでにもある</label>
             <label><input type="radio" name="rel" value="first"> 今回が初めて</label>
           </div></div>
-        <div class="field"><label>文面の調子</label>
+        <div class="field"><label>メールの文面の調子 <small>（チャット向けの短文には影響しません）</small></label>
           <div class="seg">
             <label><input type="radio" name="tone" value="soft" checked> やわらかめ</label>
             <label><input type="radio" name="tone" value="plain"> ふつう</label>
@@ -230,7 +230,26 @@ a { color: var(--accent); }
       <section class="panel" aria-labelledby="h-msg">
         <h2 id="h-msg">1. 相手に送る確認文</h2>
         <p class="lead">メールやチャットにそのまま貼れます。相手から「問題ありません」などの返事をもらえたら、その返事を消さずに残しておくと、後で条件の記録になります。</p>
-        <div class="field" style="margin-bottom:10px"><label for="subject">件名</label>
+        <div class="field"><label>文面の形</label>
+          <div class="seg">
+            <label><input type="radio" name="fmt" value="chat" checked> チャット向けの短文</label>
+            <label><input type="radio" name="fmt" value="mail"> メール</label>
+          </div></div>
+        <fieldset style="margin:10px 0">
+          <legend>確認文に入れる項目</legend>
+          <p class="note" style="margin:0">印を付けた項目だけを文面に入れます。入力してあれば「この条件で合っているか」、空欄なら「教えてください」と尋ねます。印を外した項目は、自分のメモとして残るだけで、相手には聞きません。</p>
+          <div class="seg" id="inclSeg">
+            <label><input type="checkbox" data-inc="work"> 業務の内容</label>
+            <label><input type="checkbox" data-inc="fee"> 報酬額</label>
+            <label><input type="checkbox" data-inc="due"> 納期</label>
+            <label><input type="checkbox" data-inc="pay"> お支払日</label>
+            <label><input type="checkbox" data-inc="how"> 納品の方法</label>
+            <label><input type="checkbox" data-inc="rev"> 修正の回数</label>
+            <label><input type="checkbox" data-inc="cancel"> 途中で中止になったとき</label>
+          </div>
+          <input type="hidden" id="incl" form="f">
+        </fieldset>
+        <div class="field" style="margin-bottom:10px" id="subjectField"><label for="subject">件名</label>
           <div class="actions" style="margin-top:0"><input id="subject" readonly style="flex:1 1 16em"><button type="button" class="ghost" id="copySubj">件名をコピー</button></div></div>
         <pre class="msg" id="msg"></pre>
         <div id="missing" class="missing" hidden></div>
@@ -248,6 +267,7 @@ a { color: var(--accent); }
             <li>「させていただく」は、相手の許可を得て行うときに使う言い方なので、多用していません。</li>
             <li>決まっていない点には番号を付け、相手が一つずつ答えやすくしています。</li>
           </ul>
+          <p>チャット向けの短文では、挨拶と署名を省き、文頭で用件（何の確認か）を示し、短くまとめています。敬語は保っています。ビジネスチャットでは定型の挨拶や署名を省く方が好まれ、結論を先に短く伝える、という解説（お名前.com ビジネスコンシェルジュ、2025年2月）と、相手を問わず敬語を使い、話題を文頭で示す、という解説（ミツモア編集部、2026年10月更新）によります。どちらも民間の解説記事で、取引先とのチャットに限った公的な指針は見つけていません。</p>
           <p>文化庁「敬語おもしろ相談室」、大学・ビジネス向けのメールの書き方の解説、日本ビジネスメール協会「ビジネスメール実態調査2026」をもとにしています。</p>
         </details>
         <details>
@@ -384,7 +404,7 @@ a { color: var(--accent); }
     <p>実際にお使いの方の声を集めて、確認文の形や表示を見直すための試験運用です。内容は予告なく変えることがあります。記録の保存方法を変えるときは、今の記録を引き継げるようにします。</p>
   </section>
 
-  <footer><span data-cfg="version">ベータ版 0.2</span>（<span data-cfg="updated">2026年11月19日</span>更新）。法律・窓口の情報の確認日：<span data-cfg="checked">2026年11月19日</span>。</footer>
+  <footer><span data-cfg="version">ベータ版 0.3</span>（<span data-cfg="updated">2026年11月19日</span>更新）。法律・窓口の情報の確認日：<span data-cfg="checked">2026年11月19日</span>。</footer>
 </div>
 
 <script id="logic">
@@ -428,14 +448,14 @@ function assess(recv, promised, today) {
 <script>
 // ---- 公開前に決めて書き込む設定 ----
 const CONFIG = {
-  version: 'ベータ版 0.2',
+  version: 'ベータ版 0.3',
   updated: '2026年11月19日',
   checked: '2026年11月19日',        // 法律・窓口の情報を確かめた日
   operator: 'クラシ',
   formUrl: '',                       // Google フォームの回答用リンク（https://docs.google.com/forms/d/e/…/viewform）。空なら感想の案内は出ない
 };
 const $ = id => document.getElementById(id);
-const FIELDS = ['clientCo','clientName','me','myTitle','myContact','title','start','work','fee','tax','due','how','payType','payDate','rev','cancel','recv','sentDate','replyDate','reply','invDate','paidDate','memo','r2','r3'];
+const FIELDS = ['clientCo','clientName','me','myTitle','myContact','title','start','work','fee','tax','due','how','payType','payDate','rev','cancel','recv','sentDate','replyDate','reply','invDate','paidDate','memo','r2','r3','incl'];
 const KEY = 'jutyu-memo-cases-v1';
 const OLD_KEY = 'jutyu-memo-v2';
 let store = { cases: [], current: null };
@@ -444,7 +464,7 @@ function example() {
   const t = new Date(); const due = addDays(t, 14); const st = addDays(t, 3);
   return { clientCo: '株式会社サンプル商事', clientName: '販売促進部 田中', me: '山田 花子', myTitle: 'デザイナー', myContact: '', title: '新商品ページのバナー制作', start: ymd(st),
     work: '新商品ページ用のバナー画像 3点（サイズ違い）の制作', fee: '90000', tax: '税抜',
-    due: ymd(due), how: 'PNGデータをメールで送付', payType: 'eom1', payDate: '', rev: '2回まで', cancel: '', recv: '', tone: 'soft',
+    due: ymd(due), how: 'PNGデータをメールで送付', payType: 'eom1', payDate: '', rev: '2回まで', cancel: '', recv: '', tone: 'soft', fmt: 'chat', incl: '',
     sentDate: ymd(t), replyDate: '', reply: '', invDate: '', paidDate: '', memo: '', r2: '', r3: '' };
 }
 function md(dt) { return (dt.getMonth() + 1) + '月' + dt.getDate() + '日（' + '日月火水木金土'[dt.getDay()] + '）'; }
@@ -453,11 +473,13 @@ function buildSubject(o) { return '【ご確認】' + (o.title || '〇〇') + '�
 function read() {
   const o = {}; FIELDS.forEach(k => o[k] = $(k).value.trim());
   o.tone = document.querySelector('input[name=tone]:checked').value;
+  o.fmt = document.querySelector('input[name=fmt]:checked').value;
   o.rel = document.querySelector('input[name=rel]:checked').value; return o;
 }
 function write(o) {
   FIELDS.forEach(k => { $(k).value = o[k] ?? ''; });
   document.querySelectorAll('input[name=tone]').forEach(r => r.checked = (r.value === (o.tone || 'soft')));
+  document.querySelectorAll('input[name=fmt]').forEach(r => r.checked = (r.value === (o.fmt || 'chat')));
   document.querySelectorAll('input[name=rel]').forEach(r => r.checked = (r.value === (o.rel || 'usual')));
 }
 function newId() { return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -657,19 +679,30 @@ function payText(o, recv) {
   return '';
 }
 
+// 確認文に入れる項目。incl が空なら既定（中心の4項目＋入力済みの項目）
+const CORE = ['work', 'fee', 'due', 'pay'];
+function inclSet(o, filled) {
+  if (o.incl === '-') return new Set();
+  if (o.incl) return new Set(o.incl.split(','));
+  return new Set(Object.keys(filled).filter(k => CORE.includes(k) || filled[k]));
+}
 function buildMessage(o) {
   const soft = o.tone === 'soft';
   const recv = parseYMD(o.recv) || parseYMD(o.due);
-  const items = [
-    ['業務の内容', o.work],
-    ['報酬額', feeText(o)],
-    ['納期', parseYMD(o.due) ? jp(parseYMD(o.due)) : ''],
-    ['納品の方法', o.how],
-    ['お支払い', payText(o, recv)],
-    ['修正の回数', o.rev],
-    ['途中で中止になった場合', o.cancel],
+  const all = [
+    ['work', '業務の内容', o.work],
+    ['fee', '報酬額', feeText(o)],
+    ['due', '納期', parseYMD(o.due) ? jp(parseYMD(o.due)) : ''],
+    ['how', '納品の方法', o.how],
+    ['pay', 'お支払日', payText(o, recv)],
+    ['rev', '修正の回数', o.rev],
+    ['cancel', '途中で中止になった場合の扱い', o.cancel],
   ];
+  const filled = {}; all.forEach(i => filled[i[0]] = !!i[2]);
+  const inc = inclSet(o, filled);
+  const items = all.filter(i => inc.has(i[0])).map(i => [i[1], i[2]]);
   const known = items.filter(i => i[1]); const unknown = items.filter(i => !i[1]);
+  if (o.fmt !== 'mail') return buildChat(o, known, unknown, inc);
   const me = o.me || '〇〇';
   const start = parseYMD(o.start);
   const L = [];
@@ -738,7 +771,27 @@ function buildMessage(o) {
   L.push(o.myTitle ? me + '（' + o.myTitle + '）' : me);
   if (o.myContact) L.push(o.myContact);
   L.push('――――――――――――――');
-  return { text: L.join('\n'), unknown: unknown.map(i => i[0]) };
+  return { text: L.join('\n'), unknown: unknown.map(i => i[0]), inc };
+}
+// チャット向けの短文：挨拶・署名を省き、用件を先に、短く、敬語は保つ
+function buildChat(o, known, unknown, inc) {
+  const me = o.me || '〇〇';
+  const start = parseYMD(o.start);
+  const L = [];
+  if (o.rel === 'first') L.push((o.myTitle ? o.myTitle + 'の' : '') + me + 'と申します。');
+  L.push('【' + (o.title || '〇〇') + 'の条件のご確認】');
+  if (known.length) {
+    L.push('いただいたお話を、下記のとおり理解しています。');
+    known.forEach(i => L.push('・' + i[0] + '：' + i[1]));
+    L.push('相違がなければ、一言ご返信いただけますでしょうか。');
+  }
+  if (unknown.length) {
+    if (known.length) L.push('');
+    L.push((known.length ? 'あわせて、' : '') + unknown.map(i => i[0]).join('、') + 'を教えていただけますと幸いです。');
+  }
+  if (!known.length && !unknown.length) L.push('（確認文に入れる項目を選んでください）');
+  if (start) { L.push(''); L.push(md(start) + 'に作業を始める予定のため、それまでにお返事をいただけますと助かります。'); }
+  return { text: L.join('\n'), unknown: unknown.map(i => i[0]), inc };
 }
 
 function render() {
@@ -746,9 +799,11 @@ function render() {
   $('payDateField').hidden = o.payType !== 'date';
   const m = buildMessage(o);
   $('msg').textContent = m.text;
+  document.querySelectorAll('[data-inc]').forEach(c => c.checked = m.inc.has(c.dataset.inc));
+  $('subjectField').hidden = o.fmt !== 'mail';
   $('subject').value = buildSubject(o);
   const miss = $('missing');
-  if (m.unknown.length) { miss.hidden = false; miss.textContent = 'まだ決まっていない項目：' + m.unknown.join('、') + '。文面では相手に確認をお願いする形にしています。'; }
+  if (m.unknown.length) { miss.hidden = false; miss.textContent = '空欄の項目：' + m.unknown.join('、') + '。文面では相手に尋ねる形にしています。今回は聞かないなら、上の「確認文に入れる項目」で印を外してください。'; }
   else miss.hidden = true;
 
   const today = new Date(); today.setHours(0,0,0,0);
@@ -828,7 +883,7 @@ $('newCase').addEventListener('click', () => {
   const base = cur().sample ? {} : read();
   const id = newId();
   // 自分の名前や連絡先は引き継ぎ、取引の中身は空にする
-  store.cases.push({ id, data: { me: base.me || '', myTitle: base.myTitle || '', myContact: base.myContact || '', payType: 'none', tone: base.tone || 'soft', rel: 'usual' } });
+  store.cases.push({ id, data: { me: base.me || '', myTitle: base.myTitle || '', myContact: base.myContact || '', payType: 'none', tone: base.tone || 'soft', fmt: base.fmt || 'chat', rel: 'usual' } });
   store.current = id; write(cur().data); stageAuto = true; render();
 });
 let delTarget = null;
@@ -844,6 +899,12 @@ $('delYes').addEventListener('click', () => {
   $('delConfirm').hidden = true; write(cur().data); stageAuto = true; render();
 });
 $('remFee').addEventListener('change', render);
+document.querySelectorAll('input[name=fmt]').forEach(r => r.addEventListener('change', render));
+document.querySelectorAll('[data-inc]').forEach(c => c.addEventListener('change', () => {
+  const on = [...document.querySelectorAll('[data-inc]')].filter(x => x.checked).map(x => x.dataset.inc);
+  $('incl').value = on.length ? on.join(',') : '-';
+  render();
+}));
 $('copyRemSubj').addEventListener('click', () => copyText($('remSubject').value, 'remCopied', $('remSubject')));
 $('copyRem').addEventListener('click', () => copyText($('remMsg').textContent, 'remCopied', $('remMsg')));
 $('copyTl').addEventListener('click', () => copyText($('timeline').textContent, 'tlCopied', $('timeline')));
@@ -869,9 +930,10 @@ if (/^https:\/\/docs\.google\.com\/forms\//.test(CONFIG.formUrl)) {
 function cleanData(d) {
   const o = {};
   if (!d || typeof d !== 'object') return o;
-  FIELDS.concat(['tone', 'rel']).forEach(k => { if (typeof d[k] === 'string') o[k] = d[k].slice(0, 5000); });
+  FIELDS.concat(['tone', 'rel', 'fmt']).forEach(k => { if (typeof d[k] === 'string') o[k] = d[k].slice(0, 5000); });
   if (!['soft', 'plain'].includes(o.tone)) delete o.tone;
   if (!['usual', 'first'].includes(o.rel)) delete o.rel;
+  if (!['chat', 'mail'].includes(o.fmt)) delete o.fmt;
   if (!['none', 'nodeal', 'date', 'eom1', 'eom2'].includes(o.payType)) o.payType = 'none';
   return o;
 }
